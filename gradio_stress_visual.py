@@ -83,10 +83,10 @@ def predict_stress(assignments, class_hours, days_until_exam, sleep_hours):
         category = "Medium"
         advice = ["Ensure you are running your FastAPI backend!", "Take short breaks."]
 
-    if score < 35:
+    if score < 55:
         emoji = "😌"
         color = "#4ade80" # Green
-    elif score < 65:
+    elif score < 80:
         emoji = "😐"
         color = "#facc15" # Yellow
     else:
@@ -98,20 +98,29 @@ def predict_stress(assignments, class_hours, days_until_exam, sleep_hours):
 # ----------- HTML Generators -----------
 
 def build_gauge_html(score, color):
+    # Convert score (0-100) to degrees (0-180)
     angle = (score / 100) * 180
     
     return f"""
     <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; margin-top:20px;">
+        
         <div style="position: relative; width: 220px; height: 110px; overflow: hidden;">
-            <div style="width: 220px; height: 220px; background: #374151; border-radius: 50%;"></div>
+            
+            <div style="
+                position: absolute; top: 0; left: 0;
+                width: 220px; height: 220px; 
+                background: #374151; 
+                border-radius: 50%;
+            "></div>
+
             <div style="
                 position: absolute; top: 0; left: 0;
                 width: 220px; height: 220px;
-                background: conic-gradient(from 270deg, transparent 0deg, {color} {angle}deg, transparent {angle}deg);
+                background: conic-gradient(from 270deg, {color} 0deg, {color} {angle}deg, transparent {angle}deg);
                 border-radius: 50%;
-                transform: rotate(-90deg);
-                box-shadow: 0 0 15px {color};
+                opacity: 0.9;
             "></div>
+
             <div style="
                 position: absolute; top: 25px; left: 25px;
                 width: 170px; height: 170px;
@@ -119,8 +128,10 @@ def build_gauge_html(score, color):
                 border-radius: 50%;
                 display: flex; justify-content: center; align-items: flex-start;
             "></div>
+
         </div>
-        <div style="font-size: 48px; font-weight: bold; color: {color}; margin-top: -55px; z-index:10; text-shadow: 0 0 10px {color};">
+
+        <div style="font-size: 48px; font-weight: bold; color: {color}; margin-top: -55px; z-index:10; text-shadow: 0 0 15px {color};">
             {score:.0f}
         </div>
     </div>
@@ -156,11 +167,19 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CUSTOM_CSS) as demo:
             
             # ---------- LEFT: INPUTS ----------
             with gr.Column(scale=1, min_width=300):
-                gr.Markdown("### 📝 Your Inputs")
-                assignments = gr.Slider(0, 10, value=4, step=1, label="Assignments Due")
-                class_hours = gr.Slider(0, 60, value=20, step=1, label="Class Hours / Week")
+                gr.Markdown("### 🍃 Your Inputs")
+                
+                # UPDATED: Assignments 0 to 9
+                assignments = gr.Slider(0, 9, value=4, step=1, label="Assignments Due")
+                
+                # UPDATED: Class Hours 10 to 40
+                class_hours = gr.Slider(10, 40, value=20, step=1, label="Class Hours / Week")
+                
+                # UPDATED: Sleep Hours 0 to 12
                 sleep_hours = gr.Slider(0, 12, value=6, step=0.5, label="Sleep Hours / Night")
-                days_until_exam = gr.Slider(0, 60, value=30, step=1, label="Days Until Exam")
+                
+                # UPDATED: Days Until Exam 0 to 180
+                days_until_exam = gr.Slider(0, 180, value=30, step=1, label="Days Until Exam")
 
             # ---------- RIGHT: RESULTS ----------
             with gr.Column(scale=1, min_width=300):
