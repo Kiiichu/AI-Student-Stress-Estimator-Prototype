@@ -12,10 +12,17 @@ model = model_bundle["model"]
 FEATURE_COLUMNS = model_bundle["feature_columns"]
 
 class PredictRequest(BaseModel):
-    assignments: int = Field(..., ge=0, le=50)
-    class_hours: float = Field(..., ge=0, le=168)
-    days_to_exam: int = Field(..., ge=0, le=999)  # use 999 if no upcoming exam
-    sleep_hours: float = Field(..., ge=0, le=24)
+    # UPDATED: Assignments (0 - 9)
+    assignments: int = Field(..., ge=0, le=9)
+    
+    # UPDATED: Class Hours (10 - 40)
+    class_hours: float = Field(..., ge=10, le=40)
+    
+    # UPDATED: Days to Exam (0 - 180)
+    days_to_exam: int = Field(..., ge=0, le=180)
+    
+    # UPDATED: Sleep Hours (0 - 12)
+    sleep_hours: float = Field(..., ge=0, le=12)
 
 class PredictResponse(BaseModel):
     stress_score: float
@@ -24,14 +31,19 @@ class PredictResponse(BaseModel):
     advice: list[str]
 
 def compute_category(score: float) -> str:
-    if score < 35:
+    if score < 55:
         return "Low"
-    elif score < 65:
+    elif score < 80:
         return "Medium"
     else:
         return "High"
 
-def generate_advice(req):
+def generate_advice(req, score):
+    # NEW LOGIC: Positive reinforcement for very low stress
+    if score < 30:
+        return ["🌟 Great job! You are managing your workload perfectly. Keep it up!"]
+
+    # Standard advice logic for everyone else
     adv = []
     if req.sleep_hours < 6:
         adv.append("Prioritise sleep — aim for 7+ hours nightly to improve focus and memory.")
@@ -41,23 +53,43 @@ def generate_advice(req):
         adv.append("Use active recall & spaced repetition for exam prep. Make a 3-day plan.")
     if req.class_hours > 25:
         adv.append("Schedule recovery breaks between heavy class days.")
+    
     if len(adv) == 0:
         adv.append("Your stress drivers look mild — keep consistent sleep and small breaks.")
+    
     return adv
 
 def top_factor(req):
-    # crude heuristic to identify top factor
+    # Calculate impact using the NEW rules from train_model.py
+    
+    # 1. Assignments: 5 points per assignment
+    f_assignments = req.assignments * 5.0
+    
+    # 2. Sleep: 5 points for every hour below 9
+    f_sleep = max(0, (9 - req.sleep_hours)) * 5.0
+    
+    # 3. Class Hours: 0.8 points per hour (NOW ADDS STRESS)
+    f_class = req.class_hours * 0.8
+    
+    # 4. Exam: 1 point per day closer (starting from 60 days out)
+    #    If days_to_exam is 999 (no exam), min caps it at 60, resulting in 0 stress.
+    days_capped = min(req.days_to_exam, 60)
+    f_exam = max(0, (60 - days_capped)) * 1.0
+
     factors = {
-        "assignments": req.assignments * 8,
-        "sleep": max(0, (7 - req.sleep_hours)) * 6,
-        "class_hours": max(0, req.class_hours - 20) * 0.6,
-        "exam_proximity": max(0, (21 - req.days_to_exam)) * 2 if req.days_to_exam < 999 else 0
+        "assignments": f_assignments,
+        "sleep": f_sleep,
+        "class_hours": f_class,
+        "exam_proximity": f_exam
     }
+    
+    # Identify the factor with the highest calculated stress contribution
     top = max(factors.items(), key=lambda kv: kv[1])[0]
+    
     mapping = {
         "assignments": "Assignment load",
-        "sleep": "Sleep hours",
-        "class_hours": "Class load",
+        "sleep": "Lack of sleep",
+        "class_hours": "Heavy class schedule",
         "exam_proximity": "Upcoming exam"
     }
     return mapping.get(top, "Other")
@@ -71,7 +103,7 @@ def predict(req: PredictRequest):
     score = float(model.predict(x)[0])
     score = max(0.0, min(100.0, score))
     category = compute_category(score)
-    advice = generate_advice(req)
+    advice = generate_advice(req, score)
     tf = top_factor(req)
     return PredictResponse(stress_score=round(score,1), category=category, top_factor=tf, advice=advice)
 
