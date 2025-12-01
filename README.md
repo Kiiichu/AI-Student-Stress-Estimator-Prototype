@@ -4,9 +4,9 @@ A desktop-based stress estimation system for students, combining a FastAPI backe
 # Features
 - Stress Prediction: Uses a trained Random Forest Regressor to predict stress score (0-100).
 - Stress Categories:
-    - Low: 0–45
-    - Medium: 45–75
-    - High: 75–100
+    - Low: 0–55
+    - Medium: 55–80
+    - High: 80–100
 - Top Stress Factor Identification: Determines which factor contributes most to the predicted stress.
 - Personalized Advice: Generates study, sleep, and exam tips based on user inputs.
 - Interactive Frontend: Built with Gradio for easy user interaction.
