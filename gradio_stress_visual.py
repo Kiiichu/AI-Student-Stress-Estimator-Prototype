@@ -1,5 +1,7 @@
 import gradio as gr
 import requests
+import os
+import sys
 
 # ----------- Configuration -----------
 API_URL = "http://127.0.0.1:8000/predict"
@@ -83,10 +85,11 @@ def predict_stress(assignments, class_hours, days_until_exam, sleep_hours):
         category = "Medium"
         advice = ["Ensure you are running your FastAPI backend!", "Take short breaks."]
 
-    if score < 55:
+    # UPDATED: Thresholds set to 40 and 60 to match app.py logic
+    if score < 40:
         emoji = "😌"
         color = "#4ade80" # Green
-    elif score < 80:
+    elif score < 60:
         emoji = "😐"
         color = "#facc15" # Yellow
     else:
@@ -94,6 +97,18 @@ def predict_stress(assignments, class_hours, days_until_exam, sleep_hours):
         color = "#f87171" # Red
 
     return score, category, emoji, color, advice
+
+# ----------- System Control -----------
+def shutdown_system():
+    # 1. Tell backend to shut down
+    try:
+        requests.get(API_URL.replace("/predict", "/shutdown"))
+    except:
+        pass # Backend might die before replying, which is fine
+    
+    # 2. Kill this frontend process
+    print("Shutting down frontend...")
+    os._exit(0)
 
 # ----------- HTML Generators -----------
 
@@ -162,23 +177,16 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CUSTOM_CSS) as demo:
         
         gr.Markdown("# 🧬 Student Stress Estimator", elem_classes="text-center")
         
-        # force_row_height=True helps align things, but the CSS min-width is the real fix
         with gr.Row():
             
             # ---------- LEFT: INPUTS ----------
             with gr.Column(scale=1, min_width=300):
                 gr.Markdown("### 🍃 Your Inputs")
                 
-                # UPDATED: Assignments 0 to 9
+                # Sliders with updated ranges
                 assignments = gr.Slider(0, 9, value=4, step=1, label="Assignments Due")
-                
-                # UPDATED: Class Hours 10 to 40
                 class_hours = gr.Slider(10, 40, value=20, step=1, label="Class Hours / Week")
-                
-                # UPDATED: Sleep Hours 0 to 12
                 sleep_hours = gr.Slider(0, 12, value=6, step=0.5, label="Sleep Hours / Night")
-                
-                # UPDATED: Days Until Exam 0 to 180
                 days_until_exam = gr.Slider(0, 180, value=30, step=1, label="Days Until Exam")
 
             # ---------- RIGHT: RESULTS ----------
@@ -188,12 +196,19 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CUSTOM_CSS) as demo:
                 out_gauge = gr.HTML(build_gauge_html(0, "#4b5563"))
                 out_advice = gr.HTML("<div class='advice-box'>Adjust sliders and click Analyze.</div>")
 
+        # Analyze Button
         predict_btn = gr.Button("Analyze Stress Level", variant="primary", size="lg")
+        
+        # Shutdown Button
+        shutdown_btn = gr.Button("🔴 Shutdown System", variant="stop")
 
+    # Click Events
     predict_btn.click(
         fn=format_output,
         inputs=[assignments, class_hours, days_until_exam, sleep_hours],
         outputs=[out_category, out_gauge, out_advice]
     )
+    
+    shutdown_btn.click(fn=shutdown_system)
 
 demo.launch(share=False, inbrowser=True, server_name="127.0.0.1", server_port=7860)
