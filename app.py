@@ -3,6 +3,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel, Field
 import joblib
 import numpy as np
+import os
+import signal
 
 app = FastAPI(title="Student Stress Estimator API")
 
@@ -106,6 +108,13 @@ def predict(req: PredictRequest):
     advice = generate_advice(req, score)
     tf = top_factor(req)
     return PredictResponse(stress_score=round(score,1), category=category, top_factor=tf, advice=advice)
+
+@app.get("/shutdown")
+def shutdown_event():
+    print("Shutting down backend...")
+    # This kills the current process (FastAPI server)
+    os.kill(os.getpid(), signal.SIGTERM)
+    return {"message": "Backend shutting down..."}
 
 if __name__ == "__main__":
     import uvicorn
